@@ -119,6 +119,7 @@ StageShifts(imageA, imageB, alphaSS, betaSS, xSS, ySS, zSS, alphaA, alphaB, beta
 
 if(abs(alphaSS)<0.5 && abs(betaSS)<0.5)
 {
+//result("\n"+"Shift only detected, saving data . . .")
 //save data
 setpixel(dataarray,counter,0,xSS)
 setpixel(dataarray,counter,1,ySS)
@@ -135,6 +136,26 @@ rotation = 180+rotation
 //save relative rotation
 setpixel(dataarray,counter,4,rotation)
 counter++
+}
+else
+{
+//save data
+setpixel(dataarray,counter,0,alphaSS)
+setpixel(dataarray,counter,1,betaSS)
+setpixel(dataarray,counter,2,xImSh)
+setpixel(dataarray,counter,3,yImSh)
+//calculate axis orientation
+number thetaIm = atan(yImSh/xImSh)*(180/pi()) 
+number thetaS  = atan(betaSS/alphaSS)*(180/pi())
+number rotation = thetaIm-thetaS
+if (rotation<0)
+{
+rotation = 180+rotation
+}
+//save relative rotation
+setpixel(dataarray,counter,4,rotation)
+counter++
+
 }
 
 } // inner loop of images
@@ -162,13 +183,21 @@ for (row=-1;row<2;row++)
 	{
 	//emsetstagex(StartX+col)
 	//image img := CameraAcquire(camID)
-	//showimage(img)
-	//setname(img, "Cal Aq:"+row+" "+col)
+	image img =realimage("",4, 512, 512) //dummy images to test when not connected to a microscope
+	showimage(img)
+	setname(img, "Cal Aq:"+row+" "+col)
+	//delay(300) //delays are in 60th of a second
 	}
 }
+result("\n"+"Finished shift image collection")
 
 //## calculate rotation ##// 
-number spaces = 10 //from the 5 images there is a combination of 10 pairs
+
+number spaces = 36 //36 is the triangle number of the amount of images (9) as every image is to be paired. 5 and 10 during set up
+number nodocs=countimagedocuments()
+if (nodocs!=9) {
+okdialog("The wrong number of images are open. Please close all and start script again. \n This will now fail.")
+}
 image dataarray :=realimage("",4,spaces,5)
 ImageVsStageShifts(dataarray)
 //showimage(dataarray)
@@ -178,7 +207,6 @@ result("\n"+"Consider rotating your images by: "+meanR+" using "+spaces)
 
 
 //## apply rotation to images ##//
-number nodocs=countimagedocuments() // count all image documents, including hidden ones
 imagedocument imagedoc
 number i=0
 for(i=0; i<nodocs; i++){
@@ -192,16 +220,15 @@ string title=imagedoc.imagedocumentgetname()
 number rotangle=-meanR/(180/pi())
 image rotimg=rotate(front,rotangle)
 
-// Display the rotated image and add an ROI based on the calculated vertices
+// Display the rotated image
 showimage(rotimg)
 setname(rotimg, "R&C"+title) //Shortened title to help reading when tiled windows
 
 // Add stage positions from orginal to the new image
 GetStagePos(front, rotimg)
-//i++ // New image documents go on top so we have an extra increment
-imagedocumentclose(imagedoc,0)
+imagedocumentclose(imagedoc,0) //close orginal 
 } // close loop through orginial images
-//okdialog("User please close orginal unrotated images")
+
 
 //## find stage to image calibration from rotated images ##//
 image dataarrayR :=realimage("",4,spaces,5)
@@ -215,9 +242,87 @@ BI = tert(dataarrayR[1,0,2,spaces]>0.5 || dataarrayR[1,0,2,spaces]<-0.5,1,0)
 simple = BI*dataarrayR[1,0,2,spaces]
 number CalY = sum(simple/(0.0001+dataarrayR[3,0,4,spaces]))/sum(BI)
 result("\n"+sum(BI)+"vs"+spaces)
-result("\n"+"Calibration complete: x"+CalX+" y"+CalY)
+result("\n"+"Stage Shift Calibration complete: x"+CalX+" y"+CalY)
+
+
+// Clear workspace // 
+nodocs=countimagedocuments()
+for(i=nodocs-1; i>-1; i--){
+imagedoc=getimagedocument(i)
+imagedocumentclose(imagedoc,0) //close all images
+}
 
 //## use stage to image calibration to allow for tilt to image calibration 
-//consider rounding the calibrations 
+
+// Starting values
+//number StartA = emgetstagealpha()
+//number StartB = emgetstagebeta()
+//number row, col
+//number camID=CameraGetActiveCameraID()
+
+//## stage tilt and image collect ##//
+for (row=-1;row<2;row++)
+{
+	//emsetstagebeta(StartB+row)
+	for (col=-1;col<2;col++)
+	{
+	//emsetstagealpha(StartA+col)
+	//image img := CameraAcquire(camID)
+	//image img =realimage("",4, 512, 512) //dummy images to test when not connected to a microscope
+	showimage(img)
+	setname(img, "Cal Aq:"+row+" "+col)
+	//delay(300) //delays are in 60th of a second
+	}
+}
+result("\n"+"Finished tilt image collection")
+
+// remove any shift due to stage movement 
+// NB as you have just collected these images the satge shifts should be 0 but just incase 
+
+i=4 //assuming collected as above this should be the 5th image where tilt is 0 0
+imagedocA=getimagedocument(i) //main image to align to
+image imageA:=imagedocA.imagedocumentgetimage(0)
+for(j=i+1; j<(2*nodocs)-1; j++){
+// get window by number
+imagedocB=getimagedocument(j)
+
+// get images from that window (image documents) 
+image imageB:=imagedocB.imagedocumentgetimage(0)
+string title=imagedocB.imagedocumentgetname()
+
+StageShifts(imageA, imageB, alphaSS, betaSS, xSS, ySS, zSS, alphaA, alphaB, betaA, betaB) // Stage shifts between the two images
+
+number ImgCorrectionX = xSS/CalX 
+number ImgCorrectionY = ySS/CalY 
+image shiftimg:=imageclone(imageB)
+shiftimg=warp(imageB, icol+ImgCorrectionY, irow+ImgCorrectionX)
+
+showimage(shiftimg)
+setname(shiftimg, "S"+title) //S for shifted
+j++
+imagedocumentclose(imagedocB,0) //close orginal
+} // loop of images comparing to the first
+
+//now any image shifts are a result of the tilting
+
+image dataarrayT :=realimage("",4,spaces,5)
+ImageVsStageShifts(dataarrayT)
+showimage(dataarrayT)
+BI = binaryimage("",spaces,1)
+BI = tert(dataarrayT[0,0,1,spaces]>0.5 || dataarrayT[0,0,1,spaces]<-0.5,1,0)
+simple = BI*dataarrayT[0,0,1,spaces] //ignore stage shifts that should be 0
+number CalA = sum(simple/(0.0001+dataarrayT[3,0,4,spaces]))/sum(BI) //alpha shift causing y
+BI = tert(dataarrayT[1,0,2,spaces]>0.5 || dataarrayT[1,0,2,spaces]<-0.5,1,0)
+simple = BI*dataarrayT[1,0,2,spaces]
+number CalB = sum(simple/(0.0001+dataarrayT[2,0,3,spaces]))/sum(BI) //beta shift causing x
+result("\n"+sum(BI)+"vs"+spaces)
+result("\n"+"Stage Tilt Calibration complete: x"+CalA+" y"+CalB)
 
 //## give user the tilt to stage calibration
+// assuming that alpha tilt only changes x and beta tilt only changes y
+// to get a stage shift to correct a tilt i.e. Imx and Imy =0
+
+number StageCorrectionX = -(CalY/CalA)
+number StageCorrectionY = -(CalX/CalB)
+
+result("\n"+"Tilt to stage correction is: "+StageCorrectionX+"x "+StageCorrectionY+"y")
