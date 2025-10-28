@@ -8,27 +8,27 @@ void alphapress(object self, number increment)
 {
 number CalA=dlggetvalue(self.lookupelement("yfield"))
 number xSS=0, ySS=0
-number x = 0//emgetstagex()
-number y = 0//emgetstagey()
+number x = emgetstagex()
+number y = emgetstagey()
 
 result("\n you are here: x "+x+",y "+y)
-number alpha = 0//emgetstagealpha()
-number beta = 0//emgetstagebeta()
+number alpha = emgetstagealpha()
+number beta = emgetstagebeta()
 result("\t your tilt is: a"+alpha+" b "+beta)
 
-//emsetstagealpha(alpha+increment)
+emsetstagealpha(alpha+increment)
 
-//delay(300)
+delay(300)
 
-number newalpha = alpha+increment//emgetstagealpha()
+number newalpha = emgetstagealpha()
 result("\t new a: "+newalpha)
 number difference = newalpha-alpha
 result(" difference "+difference)
 ySS = difference*CalA
-//delay(300)
-//emsetstagey(y+difference*CalA)
+delay(300)
+emsetstagey(y+difference*CalA)
 
-result("\n"+"Tilted beta:"+increment+" and shifted: x"+xSS+" y"+ySS)
+result("\n"+"Tilted alpha:"+increment+" and shifted: x"+xSS+" y"+ySS)
 Beep()
 return
  }
@@ -37,27 +37,27 @@ void betapress(object self, number increment)
 {
 number CalB=dlggetvalue(self.lookupelement("xfield"))
 number xSS=0, ySS=0
-number x = 0//emgetstagex()
-number y = 0//emgetstagey()
+number x = emgetstagex()
+number y = emgetstagey()
 
 result("\n you are here: x "+x+",y "+y)
-number alpha = 0//emgetstagealpha()
-number beta = 0//emgetstagebeta()
+number alpha = emgetstagealpha()
+number beta = emgetstagebeta()
 result("\t your tilt is: a"+alpha+" b "+beta)
 
-//emsetstagealpha(alpha+increment)
+emsetstagebeta(beta+increment)
 
-//delay(300)
+delay(300)
 
-number newbeta = beta+increment//emgetstagebeta()
+number newbeta = emgetstagebeta()
 result("\t new b: "+newbeta)
 number difference = newbeta-beta
 result(" difference "+difference)
 xSS = difference*CalB
-//delay(300)
-//emsetstagex(x+difference*CalB)
+delay(300)
+emsetstagex(x+difference*CalB)
 
-result("\n"+"Tilted alpha:"+increment+" and shifted: x"+xSS+" y"+ySS)
+result("\n"+"Tilted beta:"+increment+" and shifted: x"+xSS+" y"+ySS)
 Beep()
 return
  }
@@ -161,13 +161,13 @@ createbuttondialog(object self)
 // Construct the dialog
 self.init( self.makeDialog() );
 self.display("Tilt and shift")
-result("\nConstructor called.")
+//result("\nConstructor called.")
 }
 
 // The destructor is called when the object (the dialog) is closed
 ~createbuttondialog(object self)
 {
-result("\nDestructor called - bye!")
+//result("\nDestructor called - bye!")
 }
 }
 
